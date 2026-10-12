@@ -53,7 +53,22 @@ Ports 50001–50006 avoid conflicts with port 5000, which macOS uses.
 
 ## Setup and launch
 
-TODO: add exact commands once the launcher or startup steps are finalized.
+Use Python 3. Start each process in a separate terminal from the project root.
+For an initial host-only check, start the fake router first and then the host:
+
+```powershell
+python tests\fake_neighbor.py RA --mode echo
+python src\host.py H1 --count 4 --interval 1 --timeout 2
+```
+
+The fake neighbor supports `echo`, `drop`, and `silent` modes for probe tests.
+Use `--mode send --target H1` to send a packet to a host and check its responder
+behavior. `python -m unittest discover -s tests` runs the packet tests.
+
+The host's `--count` defaults to `0`, which leaves it listening and responding
+without sending probes. H1 listens on port 50001 and sends to its configured
+neighbor RA on port 50002; H2 listens on port 50006 and sends to RD on port
+50005. The topology is defined in `config\topology.json`.
 
 ## Wireshark
 
