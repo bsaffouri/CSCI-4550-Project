@@ -48,27 +48,57 @@ Ports 50001–50006 avoid conflicts with port 5000, which macOS uses.
 
 ## Requirements
 
-- Python 3 
+- Python 3
 - Wireshark (for packet captures)
 
 ## Setup and launch
 
-Use Python 3. Start each process in a separate terminal from the project root.
-For an initial host-only check, start the fake router first and then the host:
+Use Python 3 and run every command from the project root, with each process in its own terminal.
 
-```powershell
-python tests\fake_neighbor.py RA --mode echo
-python src\host.py H1 --count 4 --interval 1 --timeout 2
+| | Windows | macOS / Linux |
+|---|---|---|
+| Python command | `python` | `python3` |
+| Path separator | `src\host.py` | `src/host.py` |
+
+The examples below use macOS/Linux syntax.
+
+### Configuration files
+
+| File | Purpose |
+|---|---|
+| `config/topology.json` | Every device's host, port and neighbors |
+| `config/forwardingUpper.json` | Static routes for H1 ↔ H2 via RB |
+| `config/forwardingLower.json` | Static routes for H1 ↔ H2 via RC |
+| `config/forwardingLoop.json` | RA and RB forward H2 traffic to each other, for the hop-limit test |
+
+To switch paths, restart the routers with a different forwarding file. The topology file stays the same.
+
+### Routers (in progress)
+
+```
+python3 src/router.py RA --forwarding config/forwardingUpper.json
 ```
 
-The fake neighbor supports `echo`, `drop`, and `silent` modes for probe tests.
-Use `--mode send --target H1` to send a packet to a host and check its responder
-behavior. `python -m unittest discover -s tests` runs the packet tests.
+The router name is required (`RA`, `RB`, `RC` or `RD`), as is `--forwarding`. `--config` defaults to `config/topology.json`. The router currently parses its arguments; packet forwarding is being added.
 
-The host's `--count` defaults to `0`, which leaves it listening and responding
-without sending probes. H1 listens on port 50001 and sends to its configured
-neighbor RA on port 50002; H2 listens on port 50006 and sends to RD on port
-50005. The topology is defined in `config\topology.json`.
+### Host-only check with a fake router
+
+Start the fake router first, then the host:
+
+```
+python3 tests/fake_neighbor.py RA --mode echo
+python3 src/host.py H1 --count 4 --interval 1 --timeout 2
+```
+
+The fake neighbor supports `echo`, `drop` and `silent` modes for probe tests. Use `--mode send --target H1` to send a packet to a host and check its responder behavior.
+
+The host's `--count` defaults to `0`, which leaves it listening and responding without sending probes. H1 listens on port 50001 and sends to its neighbor RA on port 50002; H2 listens on port 50006 and sends to RD on port 50005.
+
+### Tests
+
+```
+python3 -m unittest discover -s tests
+```
 
 ## Wireshark
 
