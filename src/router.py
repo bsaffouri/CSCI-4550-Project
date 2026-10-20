@@ -45,9 +45,43 @@ def run(args):
     if table is None:
         raise ValueError(f"{args.device} has no entries in {args.forwarding}")
 
-    print(args.device, my_endpoint, neighbors, table)
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.bind(my_endpoint)
+        sock.settimeout(0.2)
+        print(
+            f"router {args.device} listening on "
+            f"{my_endpoint[0]}:{my_endpoint[1]}"
+        )
+        while True:
+            try:
+                data, sender = sock.recvfrom(65535)
+            except socket.timeout:
+                continue
+            try:
+                packet = decode_packet(data)
+            except PacketError as exc:
+                print(f"received invalid packet from {sender}: {exc}")
+                continue
 
+            print(f"received from {sender}: {packet}")
 
+            if packet["hop_limit"] <= 1:
+                print(f"{args.device} DROP hop limit: {packet}")
+                continue
+            next_hop = table.get(packet["dst"])
+
+            if next_hop is None:
+                print(f"{args.device} DROP unknown destination {packet['dst']}")
+                continue
+
+            if next_hop not in neighbors:
+              print (f"{args.device} DROP invalid next hop {next_hop}")
+              continue   
+
+            packet["hop_limit"] -= 1
+            sock.sendto(encode_packet(packet), endpoint_for(args.config, next_hop))
+            print(f"{args.device} FORWARD to {next_hop}: {packet}")
+            
 def main():
     parser = argparse.ArgumentParser(
         description="Run a static router for the mini internet."
