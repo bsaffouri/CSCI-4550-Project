@@ -73,13 +73,24 @@ The examples below use macOS/Linux syntax.
 
 To switch paths, restart the routers with a different forwarding file. The topology file stays the same.
 
-### Routers (in progress)
+### Run the full network
+
+Start each process in its own terminal, routers first. For the upper path (via RB):
 
 ```
 python3 src/router.py RA --forwarding config/forwardingUpper.json
+python3 src/router.py RB --forwarding config/forwardingUpper.json
+python3 src/router.py RD --forwarding config/forwardingUpper.json
+python3 src/host.py H2
+python3 src/host.py H1 --count 20
 ```
 
-The router name is required (`RA`, `RB`, `RC` or `RD`), as is `--forwarding`. `--config` defaults to `config/topology.json`. The router currently parses its arguments; packet forwarding is being added.
+H1 should report `received=20, timeouts=0`.
+
+- **Lower path (via RC):** start RA, RC and RD with `config/forwardingLower.json` instead.
+- **Hop-limit loop:** start only RA and RB with `config/forwardingLoop.json`, then run `python3 src/host.py H1 --count 1`. RB logs `DROP hop limit` and H1 times out.
+
+The router name (`RA`, `RB`, `RC` or `RD`) and `--forwarding` are required; `--config` defaults to `config/topology.json`. Each router drops packets whose hop limit is 1 or less, packets for unknown destinations, and packets whose next hop is not a neighbor, and logs the reason.
 
 ### Host-only check with a fake router
 
