@@ -37,7 +37,7 @@ class PacketTests(unittest.TestCase):
 
     def test_unknown_message_type(self):
         with self.assertRaisesRegex(PacketError, "unknown packet type"):
-            encode_packet(valid_packet(type="DATA"))
+            encode_packet(valid_packet(type="BOGUS"))
 
     def test_packet_too_large(self):
         with self.assertRaisesRegex(PacketError, "maximum is 1200"):
@@ -55,6 +55,23 @@ class PacketTests(unittest.TestCase):
         with self.assertRaisesRegex(PacketError, "unknown field"):
             encode_packet(valid_packet(extra="not allowed"))
 
+    def test_data_round_trip(self):
+        packet = valid_packet(type="DATA", seq=0, run_id="r1")
+        self.assertEqual(decode_packet(encode_packet(packet)), packet)
+
+    def test_ack_round_trip(self):
+        packet = valid_packet(type="ACK", seq=0, run_id="r1")
+        self.assertEqual(decode_packet(encode_packet(packet)), packet)
+
+    def test_data_missing_seq(self):
+        packet = valid_packet(type="DATA", seq=0, run_id="r1")
+        del packet["seq"]
+        with self.assertRaisesRegex(PacketError, "seq"):
+            encode_packet(packet)
+
+    def test_probe_with_seq_rejected(self):
+        with self.assertRaisesRegex(PacketError, "unknown field"):
+            encode_packet(valid_packet(seq=0))        
 
 if __name__ == "__main__":
     unittest.main()
