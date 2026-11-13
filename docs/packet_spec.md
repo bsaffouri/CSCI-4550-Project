@@ -5,7 +5,7 @@ encoding and validation do not perform any network I/O.
 
 ## Fields
 
-Every packet is a JSON object with exactly these fields:
+Every packet is a JSON object. The fields allowed depend on the message type:
 
 | Field | Type | Meaning | Example |
 |---|---|---|---|
@@ -15,14 +15,23 @@ Every packet is a JSON object with exactly these fields:
 | `type` | text | Message kind from the allowed list | `"PROBE"` |
 | `msg_id` | whole number, at least 0 | Identifier used to match replies and logs | `17` |
 | `payload` | text | Message contents | `"hello"` |
+| `seq` | whole number, at least 0 | The message's position in the stop-and-wait sequence | `0` |
+| `run_id` | text | Identifies one transfer run, so packets from an old run are not confused with a new one | `"r1"` |
+
+The first six fields are required on every packet. `seq` and `run_id` are
+required on `DATA` and `ACK` packets only, and are not permitted on `PROBE` or
+`ECHO` packets.
 
 Additional fields are not permitted. A whole number is an integer; booleans are
 not integers for this specification.
 
 ## Message types
 
-The initially supported message types are `PROBE` and `ECHO`. `DATA` and `ACK`
-may be added later when reliable transfer is implemented.
+The supported message types are `PROBE`, `ECHO`, `DATA`, and `ACK`.
+
+- `DATA` carries one numbered message, identified by its `seq` and `run_id`.
+- `ACK` confirms one `DATA` message. It copies that message's `seq` and
+  `run_id`, with `src` and `dst` swapped.
 
 ## Encoding and size
 
@@ -34,8 +43,10 @@ larger than 1,200 bytes.
 
 A packet is invalid if it cannot be decoded as UTF-8 JSON, is not a JSON object,
 has a missing or extra field, has a field with the wrong type, uses an unknown
-message type, has a negative `hop_limit` or `msg_id`, or exceeds the size limit.
-Implementations report these errors with the packet module's `PacketError`.
+message type, has a negative `hop_limit`, `msg_id`, or `seq`, is missing `seq`
+or `run_id` on a `DATA` or `ACK` packet, has `seq` or `run_id` on a `PROBE` or
+`ECHO` packet, or exceeds the size limit. Implementations report these errors
+with the packet module's `PacketError`.
 
 ## Hop-limit rule
 
