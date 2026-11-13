@@ -2,6 +2,7 @@
 
 import argparse
 import socket
+import sys
 import time
 from pathlib import Path
 
@@ -55,6 +56,9 @@ def run_sender(device, count, timeout, retries, run_id, config_path):
         print(f"{device} sender listening on {own_endpoint[0]}:{own_endpoint[1]}")
 
         delivered = 0
+        retransmissions = 0
+        failed = False
+
         for seq in range(count):
             packet = {
                 "src": device,
@@ -66,19 +70,36 @@ def run_sender(device, count, timeout, retries, run_id, config_path):
                 "seq": seq,
                 "run_id": run_id,
             }
-            sock.sendto(encode_packet(packet), neighbor_endpoint)
-            print(f"sent DATA seq={seq} to {peer} via {neighbor_id}")
+            encoded = encode_packet(packet)
+            attempt = 0
 
-            deadline = time.monotonic() + timeout
-            if wait_for_ack(sock, device, run_id, seq, deadline):
-                delivered += 1
-                print(f"ACK seq={seq}")
-            else:
+            while True:
+                sock.sendto(encoded, neighbor_endpoint)
+                if attempt > 0:
+                    retransmissions += 1
+                    print(f"retransmit seq={seq} (attempt {attempt})")
+                else:
+                    print(f"sent DATA seq={seq} to {peer} via {neighbor_id}")
+
+                deadline = time.monotonic() + timeout
+                if wait_for_ack(sock, device, run_id, seq, deadline):
+                    delivered += 1
+                    print(f"ACK seq={seq}")
+                    break
+
                 print(f"timed out on seq={seq}")
+                attempt += 1
+                if attempt > retries:
+                    print(f"FAILED: no ACK for seq={seq} after {retries} retries")
+                    failed = True
+                    break
+
+            if failed:
                 break
 
-        print(f"delivered {delivered}/{count}")
+        print(f"delivered {delivered}/{count}, retransmissions={retransmissions}")
 
+    return not failed
 
 def main():
     parser = argparse.ArgumentParser(
@@ -89,8 +110,13 @@ def main():
     parser.add_argument(
         "--timeout", type=float, default=0.5, help="seconds to wait for an ACK"
     )
-    parser.add_argument("--retries", type=int, default=5, help="retry limit")
-    parser.add_argument("--run-id", default="r1", help="run label")
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=5,
+        help="resends after the first send (5 means up to 6 sends per message)",
+    ) 
+    parser.add_argument("--run-id", default="r1", help="run label")  
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="topology JSON path")
     args = parser.parse_args()
 
@@ -102,7 +128,7 @@ def main():
         parser.error("--retries must be at least 0")
 
     try:
-        run_sender(
+        ok = run_sender(
             args.device, args.count, args.timeout, args.retries,
             args.run_id, args.config,
         )
@@ -111,6 +137,8 @@ def main():
     except OSError as exc:
         parser.error(f"sender socket error: {exc}")
 
+    if not ok:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
