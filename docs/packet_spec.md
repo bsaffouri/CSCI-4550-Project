@@ -32,6 +32,8 @@ The supported message types are `PROBE`, `ECHO`, `DATA`, and `ACK`.
 - `DATA` carries one numbered message, identified by its `seq` and `run_id`.
 - `ACK` confirms one `DATA` message. It copies that message's `seq` and
   `run_id`, with `src` and `dst` swapped.
+- `PROBE` asks the destination for a reply.
+- `ECHO` replies to one `PROBE`, returning the same `msg_id` and `payload`.
 
 ## Encoding and size
 
