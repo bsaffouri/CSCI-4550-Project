@@ -75,10 +75,15 @@ def run(args):
             return
 
         probe_number = 0
+        data_number = 0
+        
         while True:
             try:
                 data, sender = sock.recvfrom(65535)
             except socket.timeout:
+                continue
+            except ConnectionResetError as exc:
+                print(f"peer reported an unreachable UDP destination: {exc}")
                 continue
 
             try:
@@ -88,8 +93,12 @@ def run(args):
                 continue
 
             print(f"received from {sender}: {packet}")
-            
+
             if args.mode == "ack" and packet["type"] == "DATA":
+                data_number += 1
+                if data_number == args.drop_number:
+                    print(f"dropped DATA number {data_number}")
+                    continue                
                 ack = {
                     "src": packet["dst"],
                     "dst": packet["src"],
@@ -135,7 +144,10 @@ def main():
         "--mode", choices=("echo", "drop", "silent", "send", "ack"), default="echo"
     )
     parser.add_argument(
-        "--drop-number", type=int, default=1, help="probe number to drop in drop mode"
+        "--drop-number",
+        type=int,
+        default=None,
+        help="probe number (drop mode) or DATA number (ack mode) to drop",
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
 
@@ -156,8 +168,10 @@ def main():
     )
     args = parser.parse_args()
 
-    if args.drop_number < 1:
+    if args.drop_number is not None and args.drop_number < 1:
         parser.error("--drop-number must be at least 1")
+    if args.mode == "drop" and args.drop_number is None:
+        args.drop_number = 1
     if args.msg_id < 0:
         parser.error("--msg-id must be at least 0")
     if args.wait < 0:

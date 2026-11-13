@@ -58,6 +58,7 @@ def run_sender(device, count, timeout, retries, run_id, config_path):
         delivered = 0
         retransmissions = 0
         failed = False
+        start = time.monotonic()
 
         for seq in range(count):
             packet = {
@@ -97,8 +98,11 @@ def run_sender(device, count, timeout, retries, run_id, config_path):
             if failed:
                 break
 
-        print(f"delivered {delivered}/{count}, retransmissions={retransmissions}")
-
+        elapsed = time.monotonic() - start
+        print(
+            f"delivered {delivered}/{count}, retransmissions={retransmissions}, "
+            f"elapsed={elapsed:.3f}s"
+        )
     return not failed
 
 def main():
