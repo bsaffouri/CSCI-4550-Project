@@ -88,6 +88,23 @@ def run(args):
                 continue
 
             print(f"received from {sender}: {packet}")
+            
+            if args.mode == "ack" and packet["type"] == "DATA":
+                ack = {
+                    "src": packet["dst"],
+                    "dst": packet["src"],
+                    "hop_limit": DEFAULT_HOP_LIMIT,
+                    "type": "ACK",
+                    "msg_id": packet["msg_id"],
+                    "payload": "",
+                    "seq": packet["seq"],
+                    "run_id": packet["run_id"],
+                }
+                response = encode_packet(ack)
+                sock.sendto(response, sender)
+                print(f"sent to {sender}: {ack}")
+                continue
+
             if args.mode == "silent" or packet["type"] != "PROBE":
                 continue
 
@@ -115,7 +132,7 @@ def main():
     )
     parser.add_argument("device", choices=("RA", "RD"), help="router identity to emulate")
     parser.add_argument(
-        "--mode", choices=("echo", "drop", "silent", "send"), default="echo"
+        "--mode", choices=("echo", "drop", "silent", "send", "ack"), default="echo"
     )
     parser.add_argument(
         "--drop-number", type=int, default=1, help="probe number to drop in drop mode"
