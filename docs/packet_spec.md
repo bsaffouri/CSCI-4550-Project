@@ -122,5 +122,10 @@ authoritative result.
 The receiver acknowledges every valid `DATA`, including duplicates. A duplicate
 means the sender never got the earlier `ACK`, so the sender needs another one to
 move on. At the end of a run the receiver reports the unique messages delivered,
-whether the full sequence `0` to `count - 1` arrived, and the number of
+whether the sequence numbers it received run from `0` with no gaps (it does not
+know `count`, so a missing final message is not detected), and the number of
 duplicates seen.
+
+After the last `DATA`, the receiver keeps listening for `--linger` seconds
+(default `3.0`) so it can re-ACK a resent final message, then prints the
+summary and exits.
