@@ -52,6 +52,7 @@ def run(args):
             f"router {args.device} listening on "
             f"{my_endpoint[0]}:{my_endpoint[1]}"
         )
+        acks_seen = 0
         while True:
             try:
                 data, sender = sock.recvfrom(65535)
@@ -75,13 +76,19 @@ def run(args):
                 continue
 
             if next_hop not in neighbors:
-              print (f"{args.device} DROP invalid next hop {next_hop}")
-              continue   
+                print(f"{args.device} DROP invalid next hop {next_hop}")
+                continue
+
+            if packet["type"] == "ACK":
+                acks_seen += 1
+                if acks_seen == args.drop_ack:
+                    print(f"{args.device} DROP test ACK #{acks_seen} seq={packet['seq']}")
+                    continue
 
             packet["hop_limit"] -= 1
             sock.sendto(encode_packet(packet), endpoint_for(args.config, next_hop))
             print(f"{args.device} FORWARD to {next_hop}: {packet}")
-            
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run a static router for the mini internet."
@@ -90,6 +97,9 @@ def main():
 
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--forwarding", type=Path, required=True)
+    parser.add_argument(
+        "--drop-ack", type=int, default=None, help="drop the Nth ACK this router forwards (for testing)"
+    )
 
     args = parser.parse_args()
     try:
@@ -97,7 +107,7 @@ def main():
     except (ValueError, PacketError) as exc:
         parser.error(str(exc))
     except OSError as exc:
-            parser.error(f"router socket error: {exc}")
+        parser.error(f"router socket error: {exc}")
 
 if __name__ == "__main__":
     main()
