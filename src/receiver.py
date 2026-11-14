@@ -17,15 +17,19 @@ def run(args):
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
         sock.bind(own_endpoint)
+        sock.settimeout(0.2)
         print(f"{args.device} receiver listening on {own_endpoint[0]}:{own_endpoint[1]}")
 
         seen = set()
         duplicates = 0
+        last_data = None
 
         while True:
             try:
                 data, sender = sock.recvfrom(65535)
             except socket.timeout:
+                if last_data is not None and time.monotonic() - last_data >= args.linger:
+                    break
                 continue
             try:
                 packet = decode_packet(data)
@@ -51,6 +55,7 @@ def run(args):
                 "run_id": packet["run_id"],
             }
             sock.sendto(encode_packet(ack), neighbor_endpoint)
+            last_data = time.monotonic()
 
             key = (packet["run_id"], packet["seq"])
             if key in seen:
@@ -59,6 +64,10 @@ def run(args):
             else:
                 seen.add(key)
                 print(f"delivered DATA seq={packet['seq']} from {packet['src']}: {packet['payload']}")
+
+        seqs = sorted(seq for _, seq in seen)
+        full = seqs == list(range(len(seqs)))
+        print(f"receiver: delivered={len(seen)}, full_sequence={full}, duplicates={duplicates}")
 
 
 def main():
