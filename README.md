@@ -92,6 +92,24 @@ H1 should report `received=20, timeouts=0`.
 
 The router name (`RA`, `RB`, `RC` or `RD`) and `--forwarding` are required; `--config` defaults to `config/topology.json`. Each router drops packets whose hop limit is 1 or less, packets for unknown destinations, and packets whose next hop is not a neighbor, and logs the reason.
 
+### Track B: reliable transfer
+
+Start the routers for the upper path (as above), then the receiver, then the sender, each in its own terminal:
+
+```
+python3 src/router.py RA --forwarding config/forwardingUpper.json
+python3 src/router.py RB --forwarding config/forwardingUpper.json
+python3 src/router.py RD --forwarding config/forwardingUpper.json
+python3 src/receiver.py H2
+python3 src/sender.py H1 --count 10
+```
+
+The sender should print `delivered 10/10, retransmissions=0`. About 3 seconds after the last message, the receiver prints `delivered=10, full_sequence=True, duplicates=0` and exits.
+
+- **Dropped final ACK:** start RD with `--drop-ack 10` so it drops the 10th ACK it forwards (the ACK for seq 9). The sender times out, resends seq 9, and finishes with `retransmissions=1`; the receiver re-ACKs the duplicate and reports `duplicates=1`.
+- **Best-effort mode:** add `--mode best-effort` to the sender to compare against stop-and-wait.
+- **Sender options:** `--count`, `--timeout` (default 0.5 s), `--retries` (default 5), `--interval`, `--run-id`. **Receiver option:** `--linger` (default 3 s).
+
 ### Host-only check with a fake router
 
 Start the fake router first, then the host:
